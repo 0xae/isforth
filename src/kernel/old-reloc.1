@@ -1,0 +1,135 @@
+;reloc.1        - isforth head space relocation words
+;-------------------------------------------------------------------------
+
+;these subroutines relocate word headers adjusting all links to their
+;new location.  they are used by fsave to pack all headers at 'here' so
+;we can save out all code space and headers as a single unit.   they are
+;used again when the fsaved forth is reloaded to relocate all headers back
+;into head space.
+;
+;you cannot guarantee a particular header will relocate back to the same
+;memory address it was relocated from
+;
+;this code does guarantee that all headers of a given thread will be in
+;contiguous memory locations no matter what order the words were defined
+;in though :)
+
+;-------------------------------------------------------------------------
+;relocate one header
+
+;esi = source header
+;edi = destination
+;ebx = nfa of previously relocated header
+
+move_header:
+ add esi, byte 4            ;skip source link field
+ mov [edi], ebx             ;point this header at previous one
+ add edi, byte 4
+ mov ebx, edi               ;remember this headers new nfa
+
+ movzx ecx, byte [esi]      ;get length of source headers name field
+ push ecx                   ;retain lex bits
+ and ecx, $1f               ;mask out lex bits
+ inc ecx                    ;include the count byte
+ rep movsb                  ;copy nfa to destination
+ mov eax, [esi]             ;get address of cfa
+
+ pop ecx                    ;is this header an alias ?
+ and cx, $20                ;dont point cfa -4 at alias header
+ jnz .L1
+ sub eax, 4                 ;get cfa -4 address
+ mov [eax], ebx             ;make cfa -4 point to new nfa location
+
+.L1
+ movsd                      ;copy cfa pointer to destination
+ ret
+
+;-------------------------------------------------------------------------
+;relocate one entire thread of a vocabulary
+
+;esi points to thread
+
+reloc_thread:
+ xor ecx, ecx               ;count of number of headers to be relocated
+.L0:
+ sub esi, byte 4            ;scan back from next headers nfa to its lfa
+ push esi                   ;save address of header to be relocated
+ inc ecx                    ;count header
+ mov esi, [esi]             ;link back to prevoius header in thread
+ or esi, esi                ;null ?
+ jnz .L0
+
+ xor ebx, ebx               ;first headers link must be null
+.L1:
+ pop esi                    ;get address of header to relocate
+ push ecx                   ;save loop counter
+ call move_header           ;relocate header
+ pop ecx
+ dec ecx
+ jne .L1
+ ret
+
+;-------------------------------------------------------------------------
+;relocate an entire vocabulary
+
+reloc_voc:
+ mov ecx, 64                ;number of threads per vocabulary
+.L0:
+ mov esi, [eax]             ;get thread address
+ cmp esi, 0                 ;empty thread?
+ je .L1
+
+ push eax                   ;save thrad address
+ push ecx                   ;save loop count
+ call reloc_thread          ;relocate thread that ends at esi
+ pop ecx
+ pop eax
+ mov [eax], ebx             ;set new end of thread in vocab
+
+.L1:
+ add eax, byte 4            ;point to next thread
+ dec ecx
+ jne .L0
+ ret
+
+;-------------------------------------------------------------------------
+;relocate all headers to address edi
+
+relocate:
+ mov eax, [voclink+5]       ;get address of most recentle created vocab
+.L0:
+ call reloc_voc             ;relocate vocabulary
+ mov eax, [eax]             ;get link to previous vocab
+ or eax, eax                ;is there another vocabulary to relocate ?
+ jnz .L0
+ ret
+
+;-------------------------------------------------------------------------
+;relocate all headers to allocated head space
+
+unpack:
+ mov eax, [turnkeyd+5]      ;are there any headers to relocate ?
+ or eax, eax
+ jnz .L0
+
+ mov edi, [hp+5]            ;where to relocate to
+ call relocate
+ mov [hp+5], edi            ;correct h-here
+
+.L0:
+ ret
+
+;-------------------------------------------------------------------------
+;relocate all headers to here. point here at end of packed headers
+
+code 'pack', pack
+ push ebx                   ;retain cached top of stack
+ push esi                   ;and interprative pointer
+ mov edi, [dp+5]            ;point to reloc destination
+ call relocate              ;relocate all headers
+ mov [dp+5], edi            ;point here past relocated headers
+ pop esi                    ;ip
+ pop ebx                    ;tos
+ next
+
+;=========================================================================

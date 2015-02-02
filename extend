@@ -1,0 +1,8 @@
+#! /bin/bash
+
+# the rm is required because i cannot seem to find a way to
+# get past the ETXTBSY error when saving out a new image to
+# a file thats someone else is executing (dammit)
+
+mv isforth isforth-old
+printf "fload src/isforth.f\n" | ./kernel.com

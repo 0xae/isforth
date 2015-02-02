@@ -1,0 +1,25 @@
+
+><>< add an assembler extension
+><>< add a meta compiler!
+><>< make ed launch editor on open file
+><>< add a file search path for fload etc
+><>< add better line editing
+
+>< make fload remember file name and current line number
+>< make abort display file and line number of error if floading
+
+done fix fsave and turnkey so that brain dead gdb likes the elf files
+done add vocabularies
+done add hashed dictionary searches (nicely faster :)
+done make fload memory map files
+done   set 'tib to start address of memory mapped file
+done   set #tib to file size
+done   make refill unmap/close file
+done use terminfo format strings for console i/o
+done fix ^7 seffault bug (sorta)
+done make fload accept the evil tab again (new fload b0rked this)
+     this is a kludge fix - scan-eol now scans up to the specified char,
+     the end of the line or tab (im assuming the char is a bl here)
+done add a debugger (for high level and eventually coded defs)
+done add command history
+done add signals

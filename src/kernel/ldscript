@@ -1,0 +1,13 @@
+SECTIONS
+{
+  .text : { *(.text) *(list) *(headers) }
+
+  /*  *** NOTE:
+   * to get the value below for bss, first build the kernel then use
+   * readelf -a to dump its elf header info. take the start address
+   * of the .text section and add to that the size of the .text
+   * section.  this is the start address for .bss below
+   */
+
+  .bss 0x804c3c7 : AT(ADDR(.text) + SIZEOF(.text)) ALIGN(1) {  *(.bss) }
+}
